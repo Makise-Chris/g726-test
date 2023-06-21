@@ -353,6 +353,30 @@ int main(int argc, char *argv[])
     g726_free(enc_state);
     g726_free(dec_state);
 
+    // Tính toán dung lượng tệp âm thanh gốc
+    FILE *fp_orig = fopen(IN_FILE_NAME, "rb");
+    fseek(fp_orig, 0L, SEEK_END);
+    long orig_size = ftell(fp_orig);
+    fclose(fp_orig);
+
+    // Tính toán dung lượng tệp âm thanh sau khi nén bằng G.726
+    FILE *fp_g726 = fopen(OUT_FILE_NAME, "rb");
+    fseek(fp_g726, 0L, SEEK_END);
+    long g726_size = ftell(fp_g726);
+    fclose(fp_g726);
+
+    // Tính toán tỷ lệ nén
+    float compression_ratio = (float) orig_size / (float) g726_size;
+
+    // Tính toán độ giảm dung lượng
+    float compression_percent = (1 - compression_ratio) * 100;
+
+    // In kết quả
+    printf("Original size: %ld bytes\n", orig_size);
+    printf("G.726 compressed size: %ld bytes\n", g726_size);
+    printf("Compression ratio: %.2f:1\n", compression_ratio);
+    printf("Compression percent: %.2f%%\n", compression_percent);
+
     return 0;
 }
 /*- End of function --------------------------------------------------------*/
