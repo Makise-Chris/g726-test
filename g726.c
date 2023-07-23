@@ -18,7 +18,7 @@
 #define MAX_TEST_VECTOR_LEN 40000
 
 #define IN_FILE_NAME        "short_nb_voice.wav"
-#define OUT_FILE_NAME       "post_g726.wav"
+#define OUT_FILE_NAME       "post_g726_16.wav"
 
 int64_t mse=0;
 int64_t sumInput=0;
@@ -291,7 +291,8 @@ int main(int argc, char *argv[])
     }
     printf("'%s' transcoded to '%s' at %dbps.\n", IN_FILE_NAME, OUT_FILE_NAME, bit_rate);
     float snr = 10*log10f(sumInput/(mse*1.0f));
-    printf("Do ton hao: %f\n", snr);
+    printf("MSE = %f\n", mse/(sampleCnt * 1.0f));
+    printf("SNR = %f\n", snr);
     printf("So luong mau: %d\n", sampleCnt);
     g726_free(enc_state);
     g726_free(dec_state);
