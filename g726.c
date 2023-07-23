@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
             updateSNR(amp[i], amp_out[i]);
         }
         printf("\n----------------------------------------------------------\n");
-        sf_writef_short(outhandle, amp, frames);
+        sf_writef_short(outhandle, amp_out, frames);
     }
     if (sf_close_telephony(inhandle))
     {
@@ -291,7 +291,6 @@ int main(int argc, char *argv[])
     }
     printf("'%s' transcoded to '%s' at %dbps.\n", IN_FILE_NAME, OUT_FILE_NAME, bit_rate);
     float snr = 10*log10f(sumInput/(mse*1.0f));
-    //float snr = mse/(sampleCnt*1.0f);
     printf("Do ton hao: %f\n", snr);
     printf("So luong mau: %d\n", sampleCnt);
     g726_free(enc_state);
