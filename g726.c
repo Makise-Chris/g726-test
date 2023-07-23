@@ -1,63 +1,3 @@
-/*
- * SpanDSP - a series of DSP components for telephony
- *
- * g726_tests.c - Test G.726 encode and decode.
- *
- * Written by Steve Underwood <steveu@coppice.org>
- *
- * Copyright (C) 2006 Steve Underwood
- *
- * All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
-
-/*! \file */
-
-/*! \page g726_tests_page G.726 tests
-\section g726_tests_page_sec_1 What does it do?
-Two sets of tests are performed:
-    - The tests defined in the G.726 specification, using the test data files supplied with
-      the specification.
-    - A generally audio quality test, consisting of compressing and decompressing a speeech
-      file for audible comparison.
-
-The speech file should be recorded at 16 bits/sample, 8000 samples/second, and named
-"pre_g726.wav".
-
-\section g726_tests_page_sec_2 How is it used?
-To perform the tests in the G.726 specification you need to obtain the test data files from the
-specification. These are copyright material, and so cannot be distributed with this test software.
-
-The files, containing test vectors, which are supplied with the G.726 specification, should be
-copied to itutests/g726 so the files are arranged in the same directory heirarchy in which they
-are supplied. That is, you should have file names like
-
-    - itutests/g726/DISK1/INPUT/NRM.M
-    - itutests/g726/DISK1/INPUT/OVR.M
-    - itutests/g726/DISK2/INPUT/NRM.A
-    - itutests/g726/DISK2/INPUT/OVR.A
-
-in your source tree. The ITU tests can then be run by executing g726_tests without
-any parameters.
-
-To perform a general audio quality test, g726_tests should be run with a parameter specifying
-the required bit rate for compression. The valid parameters are "-16", "-24", "-32", and "-40".
-The test file ../test-data/local/short_nb_voice.wav will be compressed to the specified bit rate,
-decompressed, and the resulting audio stored in post_g726.wav.
-*/
-
 #if defined(HAVE_CONFIG_H)
 #include "config.h"
 #endif
@@ -69,7 +9,7 @@ decompressed, and the resulting audio stored in post_g726.wav.
 #include <memory.h>
 #include <ctype.h>
 #include <sndfile.h>
-
+#include <math.h>
 #include <spandsp.h>
 
 #include </usr/include/spandsp/test_utils.h>
@@ -79,6 +19,16 @@ decompressed, and the resulting audio stored in post_g726.wav.
 
 #define IN_FILE_NAME        "short_nb_voice.wav"
 #define OUT_FILE_NAME       "post_g726.wav"
+
+int64_t mse=0;
+int64_t sumInput=0;
+int sampleCnt=0;
+
+void updateSNR(int16_t input, int16_t output){
+    sumInput = sumInput + input*input;
+    mse = mse + (input-output)*(input-output);
+    sampleCnt++;
+}
 
 int16_t outdata[MAX_TEST_VECTOR_LEN];
 uint8_t adpcmdata[MAX_TEST_VECTOR_LEN];
@@ -287,36 +237,13 @@ int main(int argc, char *argv[])
     SNDFILE *inhandle;
     SNDFILE *outhandle;
     int16_t amp[1024];
+    int16_t amp_out[1024];
     int frames;
     int adpcm;
     int packing;
 
     bit_rate = 16000;
     packing = G726_PACKING_NONE;
-    // while ((opt = getopt(argc, argv, "b:LR")) != -1)
-    // {
-    //     switch (opt)
-    //     {
-    //     case 'b':
-    //         bit_rate = atoi(optarg);
-    //         if (bit_rate != 16000  &&  bit_rate != 24000  &&  bit_rate != 32000  &&  bit_rate != 40000)
-    //         {
-    //             fprintf(stderr, "Invalid bit rate selected. Only 16000, 24000, 32000 and 40000 are valid.\n");
-    //             exit(2);
-    //         }
-    //         itutests = false;
-    //         break;
-    //     case 'L':
-    //         packing = G726_PACKING_LEFT;
-    //         break;
-    //     case 'R':
-    //         packing = G726_PACKING_RIGHT;
-    //         break;
-    //     default:
-    //         //usage();
-    //         exit(2);
-    //     }
-    // }
 
     if ((inhandle = sf_open_telephony_read(IN_FILE_NAME, 1)) == NULL)
     {
@@ -335,8 +262,21 @@ int main(int argc, char *argv[])
 
     while ((frames = sf_readf_short(inhandle, amp, 159)))
     {
+        for(int i=0;i<159;i++){
+            printf("%x||", amp[i]);
+        }
+        printf("\n===============================\n");
         adpcm = g726_encode(enc_state, adpcmdata, amp, frames);
-        frames = g726_decode(dec_state, amp, adpcmdata, adpcm);
+        frames = g726_decode(dec_state, amp_out, adpcmdata, adpcm);
+        for(int i=0;i<159;i++){
+            printf("%x||", adpcmdata[i]);
+        }
+        printf("\n===============================\n");
+        for(int i=0;i<159;i++){
+            printf("%x||", amp_out[i]);
+            updateSNR(amp[i], amp_out[i]);
+        }
+        printf("\n----------------------------------------------------------\n");
         sf_writef_short(outhandle, amp, frames);
     }
     if (sf_close_telephony(inhandle))
@@ -350,32 +290,12 @@ int main(int argc, char *argv[])
         exit(2);
     }
     printf("'%s' transcoded to '%s' at %dbps.\n", IN_FILE_NAME, OUT_FILE_NAME, bit_rate);
+    float snr = 10*log10f(sumInput/(mse*1.0f));
+    //float snr = mse/(sampleCnt*1.0f);
+    printf("Do ton hao: %f\n", snr);
+    printf("So luong mau: %d\n", sampleCnt);
     g726_free(enc_state);
     g726_free(dec_state);
-
-    // Tính toán dung lượng tệp âm thanh gốc
-    FILE *fp_orig = fopen(IN_FILE_NAME, "rb");
-    fseek(fp_orig, 0L, SEEK_END);
-    long orig_size = ftell(fp_orig);
-    fclose(fp_orig);
-
-    // Tính toán dung lượng tệp âm thanh sau khi nén bằng G.726
-    FILE *fp_g726 = fopen(OUT_FILE_NAME, "rb");
-    fseek(fp_g726, 0L, SEEK_END);
-    long g726_size = ftell(fp_g726);
-    fclose(fp_g726);
-
-    // Tính toán tỷ lệ nén
-    float compression_ratio = (float) orig_size / (float) g726_size;
-
-    // Tính toán độ giảm dung lượng
-    float compression_percent = (1 - compression_ratio) * 100;
-
-    // In kết quả
-    printf("Original size: %ld bytes\n", orig_size);
-    printf("G.726 compressed size: %ld bytes\n", g726_size);
-    printf("Compression ratio: %.2f:1\n", compression_ratio);
-    printf("Compression percent: %.2f%%\n", compression_percent);
 
     return 0;
 }
